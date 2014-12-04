@@ -34,8 +34,8 @@
 #define M3U8_MEDIA_SEQUENCE_TAG "#EXT-X-MEDIA-SEQUENCE:%d\n"
 #define M3U8_PROGRAM_DATE_TIME_TAG "#EXT-X-PROGRAM-DATE-TIME:%s\n"
 #define M3U8_DISCONTINUITY_TAG "#EXT-X-DISCONTINUITY\n"
-#define M3U8_INT_INF_TAG "#EXTINF:%d,\n%s\n"
-#define M3U8_FLOAT_INF_TAG "#EXTINF:%s,\n%s\n"
+#define M3U8_INT_INF_TAG "#EXTINF:%d,%s\n%s\n"
+#define M3U8_FLOAT_INF_TAG "#EXTINF:%s,%s\n%s\n"
 #define M3U8_ENDLIST_TAG "#EXT-X-ENDLIST"
 
 enum
@@ -45,15 +45,17 @@ enum
 };
 
 static GstM3U8Entry *
-gst_m3u8_entry_new (const gchar * url, GFile * file, gfloat duration,
-    gboolean discontinuous)
+gst_m3u8_entry_new (const gchar * url, GFile * file, const gchar * title,
+    gfloat duration, gboolean discontinuous)
 {
   GstM3U8Entry *entry;
 
   g_return_val_if_fail (url != NULL, NULL);
+  g_return_val_if_fail (title != NULL, NULL);
 
   entry = g_new0 (GstM3U8Entry, 1);
   entry->url = g_strdup (url);
+  entry->title = g_strdup (title);
   entry->duration = duration;
   entry->file = file;
   entry->discontinuous = discontinuous;
@@ -66,6 +68,7 @@ gst_m3u8_entry_free (GstM3U8Entry * entry)
   g_return_if_fail (entry != NULL);
 
   g_free (entry->url);
+  g_free (entry->title);
   if (entry->file != NULL)
     g_object_unref (entry->file);
   g_free (entry);
@@ -82,12 +85,12 @@ gst_m3u8_entry_render (GstM3U8Entry * entry, guint version)
     return g_strdup_printf ("%s" M3U8_INT_INF_TAG,
         entry->discontinuous ? M3U8_DISCONTINUITY_TAG : "",
         (gint) ((entry->duration + 500 * GST_MSECOND) / GST_SECOND),
-        entry->url);
+        entry->title, entry->url);
 
   return g_strdup_printf ("%s" M3U8_FLOAT_INF_TAG,
       entry->discontinuous ? M3U8_DISCONTINUITY_TAG : "",
       g_ascii_dtostr (buf, sizeof (buf), (entry->duration / GST_SECOND)),
-      entry->url);
+      entry->title, entry->url);
 }
 
 GstM3U8Playlist *
@@ -119,8 +122,8 @@ gst_m3u8_playlist_free (GstM3U8Playlist * playlist)
 
 gboolean
 gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
-    const gchar * url, GFile * file, gfloat duration,
-    guint index, gboolean discontinuous)
+    const gchar * url, GFile * file, const gchar * title,
+    gfloat duration, guint index, gboolean discontinuous)
 {
   GstM3U8Entry *entry;
   time_t rawtime;
@@ -129,11 +132,12 @@ gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
 
   g_return_val_if_fail (playlist != NULL, FALSE);
   g_return_val_if_fail (url != NULL, FALSE);
+  g_return_val_if_fail (title != NULL, FALSE);
 
   if (playlist->type == GST_M3U8_PLAYLIST_TYPE_VOD)
     return FALSE;
 
-  entry = gst_m3u8_entry_new (url, file, duration, discontinuous);
+  entry = gst_m3u8_entry_new (url, file, title, duration, discontinuous);
 
   if (playlist->window_size != -1) {
     /* Delete old entries from the playlist */
