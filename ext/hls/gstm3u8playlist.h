@@ -23,6 +23,7 @@
 #define __GST_M3U8_PLAYLIST_H__
 
 #include <glib.h>
+#include <gst/gst.h>
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
@@ -38,6 +39,7 @@ struct _GstM3U8Entry
   gchar *url;
   GFile *file;
   gboolean discontinuous;
+  GstDateTime *program_date_time;
 };
 
 struct _GstM3U8Playlist

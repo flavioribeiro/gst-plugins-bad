@@ -31,6 +31,7 @@
 #define M3U8_ALLOW_CACHE_TAG "#EXT-X-ALLOW-CACHE:%s\n"
 #define M3U8_TARGETDURATION_TAG "#EXT-X-TARGETDURATION:%d\n"
 #define M3U8_MEDIA_SEQUENCE_TAG "#EXT-X-MEDIA-SEQUENCE:%d\n"
+#define M3U8_PROGRAM_DATE_TIME_TAG "#EXT-X-PROGRAM-DATE-TIME:%d-%02d-%02dT%02d:%02d:%02d.%03d%03.0f:00\n"
 #define M3U8_DISCONTINUITY_TAG "#EXT-X-DISCONTINUITY\n"
 #define M3U8_INT_INF_TAG "#EXTINF:%d,%s\n%s\n"
 #define M3U8_FLOAT_INF_TAG "#EXTINF:%s,%s\n%s\n"
@@ -56,6 +57,7 @@ gst_m3u8_entry_new (const gchar * url, GFile * file, const gchar * title,
   entry->duration = duration;
   entry->file = file;
   entry->discontinuous = discontinuous;
+  entry->program_date_time = gst_date_time_new_now_local_time ();
   return entry;
 }
 
@@ -66,6 +68,7 @@ gst_m3u8_entry_free (GstM3U8Entry * entry)
 
   g_free (entry->url);
   g_free (entry->title);
+  gst_date_time_unref (entry->program_date_time);
   if (entry->file != NULL)
     g_object_unref (entry->file);
   g_free (entry);
@@ -178,10 +181,12 @@ gchar *
 gst_m3u8_playlist_render (GstM3U8Playlist * playlist)
 {
   gchar *pl;
+  GstM3U8Entry *first_entry;
 
   g_return_val_if_fail (playlist != NULL, NULL);
 
   playlist->playlist_str = g_string_new ("");
+  first_entry = g_queue_peek_head (playlist->entries);
 
   /* #EXTM3U */
   g_string_append_printf (playlist->playlist_str, M3U8_HEADER_TAG);
@@ -194,6 +199,16 @@ gst_m3u8_playlist_render (GstM3U8Playlist * playlist)
   /* #EXT-X-MEDIA-SEQUENCE */
   g_string_append_printf (playlist->playlist_str, M3U8_MEDIA_SEQUENCE_TAG,
       playlist->sequence_number - playlist->entries->length);
+  /* #EXT-X-PROGRAM-DATE-TIME */
+  g_string_append_printf (playlist->playlist_str, M3U8_PROGRAM_DATE_TIME_TAG,
+      gst_date_time_get_year (first_entry->program_date_time),
+      gst_date_time_get_month (first_entry->program_date_time),
+      gst_date_time_get_day (first_entry->program_date_time),
+      gst_date_time_get_hour (first_entry->program_date_time),
+      gst_date_time_get_minute (first_entry->program_date_time),
+      gst_date_time_get_second (first_entry->program_date_time),
+      (gst_date_time_get_microsecond (first_entry->program_date_time) / 1000),
+      gst_date_time_get_time_zone_offset (first_entry->program_date_time));
   /* #EXT-X-TARGETDURATION */
   g_string_append_printf (playlist->playlist_str, M3U8_TARGETDURATION_TAG,
       gst_m3u8_playlist_target_duration (playlist));
