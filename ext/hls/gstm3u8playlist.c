@@ -20,7 +20,6 @@
  */
 
 #include <glib.h>
-#include <time.h>
 
 #include "gstfragmented.h"
 #include "gstm3u8playlist.h"
@@ -32,7 +31,6 @@
 #define M3U8_ALLOW_CACHE_TAG "#EXT-X-ALLOW-CACHE:%s\n"
 #define M3U8_TARGETDURATION_TAG "#EXT-X-TARGETDURATION:%d\n"
 #define M3U8_MEDIA_SEQUENCE_TAG "#EXT-X-MEDIA-SEQUENCE:%d\n"
-#define M3U8_PROGRAM_DATE_TIME_TAG "#EXT-X-PROGRAM-DATE-TIME:%s\n"
 #define M3U8_DISCONTINUITY_TAG "#EXT-X-DISCONTINUITY\n"
 #define M3U8_INT_INF_TAG "#EXTINF:%d,%s\n%s\n"
 #define M3U8_FLOAT_INF_TAG "#EXTINF:%s,%s\n%s\n"
@@ -126,9 +124,6 @@ gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
     gfloat duration, guint index, gboolean discontinuous)
 {
   GstM3U8Entry *entry;
-  time_t rawtime;
-  struct tm *timeinfo;
-  char buffer[30];
 
   g_return_val_if_fail (playlist != NULL, FALSE);
   g_return_val_if_fail (url != NULL, FALSE);
@@ -150,10 +145,6 @@ gst_m3u8_playlist_add_entry (GstM3U8Playlist * playlist,
   }
 
   playlist->sequence_number = index + 1;
-  time (&rawtime);
-  timeinfo = localtime (&rawtime);
-  strftime (buffer, 30, "%G-%m-%dT%H:%M:%S+00:00", timeinfo);
-  playlist->program_date_time = g_strdup (buffer);
   g_queue_push_tail (playlist->entries, entry);
 
   return TRUE;
@@ -205,10 +196,6 @@ gst_m3u8_playlist_render (GstM3U8Playlist * playlist)
   /* #EXT-X-MEDIA-SEQUENCE */
   g_string_append_printf (playlist->playlist_str, M3U8_MEDIA_SEQUENCE_TAG,
       playlist->sequence_number - playlist->entries->length);
-  /* #EXT-X-PROGRAM-DATE-TIME */
-  g_string_append_printf (playlist->playlist_str, M3U8_PROGRAM_DATE_TIME_TAG,
-      playlist->program_date_time);
-
   /* #EXT-X-TARGETDURATION */
   g_string_append_printf (playlist->playlist_str, M3U8_TARGETDURATION_TAG,
       gst_m3u8_playlist_target_duration (playlist));

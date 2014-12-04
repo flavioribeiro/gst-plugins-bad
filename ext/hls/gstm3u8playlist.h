@@ -48,7 +48,6 @@ struct _GstM3U8Playlist
   gint type;
   gboolean end_list;
   guint sequence_number;
-  gchar *program_date_time;
 
   /*< Private >*/
   GQueue *entries;
