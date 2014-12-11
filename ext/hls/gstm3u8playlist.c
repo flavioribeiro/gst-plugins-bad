@@ -34,7 +34,7 @@
 #define M3U8_PROGRAM_DATE_TIME_TAG "#EXT-X-PROGRAM-DATE-TIME:%d-%02d-%02dT%02d:%02d:%02d.%03d%03.0f:00\n"
 #define M3U8_DISCONTINUITY_TAG "#EXT-X-DISCONTINUITY\n"
 #define M3U8_INT_INF_TAG "#EXTINF:%d,%s\n%s\n"
-#define M3U8_FLOAT_INF_TAG "#EXTINF:%s,%s\n%s\n"
+#define M3U8_FLOAT_INF_TAG "#EXTINF:%f,%s\n%s\n"
 #define M3U8_ENDLIST_TAG "#EXT-X-ENDLIST"
 
 enum
@@ -74,23 +74,37 @@ gst_m3u8_entry_free (GstM3U8Entry * entry)
   g_free (entry);
 }
 
-static gchar *
+static GString *
 gst_m3u8_entry_render (GstM3U8Entry * entry, guint version)
 {
-  gchar buf[G_ASCII_DTOSTR_BUF_SIZE];
+  GString *buf = g_string_new ("");
 
   g_return_val_if_fail (entry != NULL, NULL);
 
+  if (entry->discontinuous) {
+    g_string_append_printf (buf, M3U8_PROGRAM_DATE_TIME_TAG,
+        gst_date_time_get_year (entry->program_date_time),
+        gst_date_time_get_month (entry->program_date_time),
+        gst_date_time_get_day (entry->program_date_time),
+        gst_date_time_get_hour (entry->program_date_time),
+        gst_date_time_get_minute (entry->program_date_time),
+        gst_date_time_get_second (entry->program_date_time),
+        (gst_date_time_get_microsecond (entry->program_date_time) / 1000),
+        gst_date_time_get_time_zone_offset (entry->program_date_time));
+
+    g_string_append_printf (buf, M3U8_DISCONTINUITY_TAG);
+  }
+
   if (version < 3)
-    return g_strdup_printf ("%s" M3U8_INT_INF_TAG,
-        entry->discontinuous ? M3U8_DISCONTINUITY_TAG : "",
+    g_string_append_printf (buf, M3U8_INT_INF_TAG,
         (gint) ((entry->duration + 500 * GST_MSECOND) / GST_SECOND),
         entry->title ? entry->title : "", entry->url);
+  else
+    g_string_append_printf (buf, M3U8_FLOAT_INF_TAG,
+        (gfloat) ((entry->duration + 500 * GST_MSECOND) / GST_SECOND),
+        entry->title ? entry->title : "", entry->url);
 
-  return g_strdup_printf ("%s" M3U8_FLOAT_INF_TAG,
-      entry->discontinuous ? M3U8_DISCONTINUITY_TAG : "",
-      g_ascii_dtostr (buf, sizeof (buf), (entry->duration / GST_SECOND)),
-      entry->title ? entry->title : "", entry->url);
+  return buf;
 }
 
 GstM3U8Playlist *
@@ -170,11 +184,11 @@ gst_m3u8_playlist_target_duration (GstM3U8Playlist * playlist)
 static void
 render_entry (GstM3U8Entry * entry, GstM3U8Playlist * playlist)
 {
-  gchar *entry_str;
+  GString *entry_str;
 
   entry_str = gst_m3u8_entry_render (entry, playlist->version);
-  g_string_append_printf (playlist->playlist_str, "%s", entry_str);
-  g_free (entry_str);
+  g_string_append_printf (playlist->playlist_str, "%s", entry_str->str);
+  g_string_free (entry_str, TRUE);
 }
 
 gchar *
